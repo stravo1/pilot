@@ -17,6 +17,7 @@ class NewSiteFromBackupTask(Task):
     admin_password: Annotated[str, Arg(cli=False)]
     public_files: str | None = None
     private_files: str | None = None
+    server_scripts: str | None = None
 
     def run(self) -> None:
         self.require_production_privileges()
@@ -40,6 +41,7 @@ class NewSiteFromBackupTask(Task):
             admin_password=self.admin_password,
             public_files=self.public_files,
             private_files=self.private_files,
+            server_scripts=self.server_scripts,
             on_progress=self.report,
         )
 

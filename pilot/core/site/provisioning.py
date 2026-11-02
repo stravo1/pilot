@@ -215,6 +215,7 @@ def provision_from_backup(
     admin_password: str,
     public_files: str | None = None,
     private_files: str | None = None,
+    server_scripts: str | None = None,
     on_progress: Callable[[str], None] = lambda message: None,
 ) -> "Site":
     if not isinstance(admin_password, str) or not admin_password.strip():
@@ -224,7 +225,7 @@ def provision_from_backup(
 
     site = Site.provision(bench, name, [], admin_password, on_progress=on_progress, schedule_backups=False)
     on_progress(f"Restoring backup: {db_file}")
-    site.restore(db_file, public_files, private_files)
+    site.restore(db_file, public_files, private_files, server_scripts)
     # The restored database decides which apps the site runs.
     SiteApps(site).restore_installed_apps_copy()
     bench.processes.apply()

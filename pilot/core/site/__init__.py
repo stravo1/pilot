@@ -131,11 +131,15 @@ class Site:
         SiteCommands(self).create(db_type)
 
     def restore(
-        self, db_file: str, public_files: str | None = None, private_files: str | None = None
+        self,
+        db_file: str,
+        public_files: str | None = None,
+        private_files: str | None = None,
+        server_scripts: str | None = None,
     ) -> None:
         from pilot.core.site.commands import SiteCommands
 
-        SiteCommands(self).restore(db_file, public_files, private_files)
+        SiteCommands(self).restore(db_file, public_files, private_files, server_scripts)
 
     def restore_backup(
         self,
@@ -426,6 +430,7 @@ def provision_from_backup(
     admin_password: str,
     public_files: str | None = None,
     private_files: str | None = None,
+    server_scripts: str | None = None,
     on_progress: Callable[[str], None] = lambda message: None,
 ) -> "Site":
     """Create a new site (same engine as the backup) and restore into it."""
@@ -438,6 +443,7 @@ def provision_from_backup(
         admin_password,
         public_files,
         private_files,
+        server_scripts,
         on_progress,
     )
 

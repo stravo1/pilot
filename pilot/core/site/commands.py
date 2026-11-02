@@ -46,6 +46,7 @@ class SiteCommands:
         db_file: str,
         public_files: str | None = None,
         private_files: str | None = None,
+        server_scripts: str | None = None,
     ) -> None:
         for directory in ("logs", "locks"):
             (self.site.path / directory).mkdir(exist_ok=True)
@@ -54,6 +55,8 @@ class SiteCommands:
             cmd += ["--with-public-files", public_files]
         if private_files:
             cmd += ["--with-private-files", private_files]
+        if server_scripts:
+            cmd += ["--with-server-scripts", server_scripts]
         with self.setup_credentials(self.site.db_type) as credentials:
             run_command(cmd + credentials, cwd=self.site.bench.sites_path, stream_output=True)
 

@@ -1102,7 +1102,10 @@ def test_site_restore_scopes_its_account_to_the_site_database(
     statements = _capture_admin_sql(monkeypatch)
 
     Site(SiteConfig(name="m.localhost", apps=[]), bench).restore(
-        "/tmp/db.sql.gz", public_files="/tmp/pub.tar", private_files="/tmp/priv.tar"
+        "/tmp/db.sql.gz",
+        public_files="/tmp/pub.tar",
+        private_files="/tmp/priv.tar",
+        server_scripts="/tmp/scripts.tar",
     )
 
     cmd = captured["cmd"]
@@ -1111,6 +1114,7 @@ def test_site_restore_scopes_its_account_to_the_site_database(
     assert "GRANT ALL PRIVILEGES ON `_restoredb`.*" in statements[0]
     assert cmd[cmd.index("--with-public-files") + 1] == "/tmp/pub.tar"
     assert cmd[cmd.index("--with-private-files") + 1] == "/tmp/priv.tar"
+    assert cmd[cmd.index("--with-server-scripts") + 1] == "/tmp/scripts.tar"
 
 
 def test_site_reinstall_postgres_root_creds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

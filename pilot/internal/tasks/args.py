@@ -6,7 +6,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 _REDACTED = "[redacted]"
 _PRIVATE_ARGS = {
-    "new-site-from-backup": frozenset({"db_file", "public_files", "private_files"}),
+    "new-site-from-backup": frozenset({"db_file", "public_files", "private_files", "server_scripts"}),
 }
 # Every task's args are matched against these, so a new command carrying a secret is
 # covered the day it is added. wrapper.py redacts task output with the same list.
