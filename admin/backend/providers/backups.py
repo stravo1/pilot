@@ -12,6 +12,7 @@ _OFFSITE_FILE_KINDS = {
     "database": "database",
     "files": "public-file",
     "private_files": "private-file",
+    "server_scripts": "server-scripts",
     "site_config": "site_config",
 }
 
@@ -128,6 +129,8 @@ class BackupProvider:
 
     @staticmethod
     def get_file_kind(filename: str) -> str:
+        if "server-scripts" in filename:
+            return "server-scripts"
         if "private-files" in filename:
             return "private-file"
         if "files" in filename:

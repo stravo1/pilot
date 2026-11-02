@@ -12,6 +12,7 @@ FILE_TYPE_SUFFIXES = {
     "-database.sql.gz": "database",
     "-private-files.tar": "private_files",
     "-files.tar": "files",
+    "-server-scripts.tar": "server_scripts",
     "-site_config_backup.json": "site_config",
 }
 

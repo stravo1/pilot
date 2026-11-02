@@ -128,6 +128,7 @@ const OFFSITE_KIND_KEYS: Record<string, string> = {
   database: 'database',
   'public-file': 'files',
   'private-file': 'private_files',
+  'server-scripts': 'server_scripts',
   site_config: 'site_config',
 }
 
@@ -136,6 +137,7 @@ const menuOptions = (set: Backup): DropdownItem[] => {
     ['database', 'Download Database'],
     ['public-file', 'Download Public'],
     ['private-file', 'Download Private'],
+    ['server-scripts', 'Download Server Scripts'],
     ['site_config', 'Download Config'],
   ]
   return [
