@@ -43,6 +43,12 @@ const PARTS = [
     accept: '.tar,.tgz',
   },
   {
+    part: 'server_scripts',
+    label: 'Server scripts',
+    hint: 'Usually ends in -server-scripts.tar',
+    accept: '.tar,.tgz',
+  },
+  {
     part: 'config',
     label: 'Site config',
     hint: 'Usually ends in -site_config_backup.json',
@@ -83,6 +89,10 @@ const availableParts = computed(() =>
   source.value === 'remote'
     ? (selectedRemoteBackup.value?.parts ?? [])
     : PARTS.map(({ part }) => part),
+)
+// Remote and Frappe Cloud backups have no server scripts to offer.
+const checkboxParts = computed(() =>
+  PARTS.filter(({ part }) => part !== 'server_scripts' || source.value === 'site'),
 )
 const parts = computed(() =>
   PARTS.map(({ part }) => part).filter((part) =>
@@ -131,7 +141,7 @@ watch(
     setRestoreQuery(source.value)
     sourceSite.value = ''
     remoteSite.value = ''
-    chosen.value = { database: true, public: true, private: true, config: true }
+    chosen.value = { database: true, public: true, private: true, server_scripts: false, config: true }
     skipFailingPatches.value = false
     uploads.value = {}
     error.value = ''
@@ -333,7 +343,7 @@ const restore = async () => {
           class="flex flex-wrap gap-1"
         >
           <Checkbox
-            v-for="item in PARTS"
+            v-for="item in checkboxParts"
             :key="item.part"
             v-model="chosen[item.part]"
             :label="item.label"

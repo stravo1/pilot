@@ -17,7 +17,7 @@ from pilot.utils import run_command
 if TYPE_CHECKING:
     from pilot.core.site import Site
 
-RESTORE_PARTS = ("database", "public", "private", "config")
+RESTORE_PARTS = ("database", "public", "private", "server_scripts", "config")
 # The end of tar's error output says why it failed.
 _STDERR_TAIL_BYTES = 4096
 # Keys that belong to this site's own database, cache, domains, host or Pilot.
@@ -36,6 +36,8 @@ def backup_part(filename: str) -> str | None:
         return "database"
     if filename.endswith(("-private-files.tar", "-private-files.tgz")):
         return "private"
+    if filename.endswith(("-server-scripts.tar", "-server-scripts.tgz")):
+        return "server_scripts"
     if filename.endswith(("-files.tar", "-files.tgz")):
         return "public"
     if filename.endswith("-site_config_backup.json"):
@@ -116,14 +118,7 @@ class SiteRestore:
 
     def restore_parts(self, run: BackupRun, parts: list[str], on_progress: Callable[[str], None]) -> None:
         """Files go first: a stream that fails then stops the restore before the database is dropped."""
-        for part in ("public", "private"):
-            if part in parts:
-                if stream := run.streams.get(part):
-                    on_progress(f"Downloading and restoring {part} files...")
-                    self.extract_files_stream(stream, part)
-                else:
-                    on_progress(f"Restoring {part} files...")
-                    self.extract_files(run.files[part], part)
+        self.restore_files(run, parts, on_progress)
         if "database" in parts:
             if stream := run.streams.get("database"):
                 on_progress("Downloading and restoring the database...")
@@ -140,6 +135,19 @@ class SiteRestore:
                 values.pop("encryption_key", None)
             self.site.set_config_values(values)
 
+    def restore_files(self, run: BackupRun, parts: list[str], on_progress: Callable[[str], None]) -> None:
+        for part in ("public", "private"):
+            if part in parts:
+                if stream := run.streams.get(part):
+                    on_progress(f"Downloading and restoring {part} files...")
+                    self.extract_files_stream(stream, part)
+                else:
+                    on_progress(f"Restoring {part} files...")
+                    self.extract_files(run.files[part], part)
+        if "server_scripts" in parts:
+            on_progress("Restoring server scripts...")
+            self.extract_files(run.files["server_scripts"], "server_scripts")
+
     def get_restored_database_config(self, run: BackupRun) -> dict:
         """Frappe's restore leaves the installed_apps mirror stale, and the restored
         passwords need the source site's encryption key."""
@@ -152,10 +160,12 @@ class SiteRestore:
         return values
 
     def extract_files(self, archive: Path, part: str) -> None:
-        """Frappe's own extraction of ./<site>/<part>/files/, limited to that directory so
-        an archive from elsewhere cannot reach site_config.json."""
+        """Frappe's own extraction of ./<site>/<part>/files/ (./<site>/server_scripts/ for the
+        scripts), limited to that directory so an archive from elsewhere cannot reach
+        site_config.json."""
+        directory = "server_scripts" if part == "server_scripts" else f"{part}/files"
         run_command(
-            ["tar", "xf", str(archive.resolve()), "--strip", "2", "--wildcards", f"*/{part}/files"],
+            ["tar", "xf", str(archive.resolve()), "--strip", "2", "--wildcards", f"*/{directory}"],
             cwd=self.site.path,
         )
 

@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pilot.core.site.restore import BackupRun, BackupStream, SiteRestore, backup_part
+from pilot.core.bench.uploads import upload_file_name
+from pilot.core.site.restore import RESTORE_PARTS, BackupRun, BackupStream, SiteRestore, backup_part
 from pilot.exceptions import BenchError
 
 
@@ -21,6 +22,16 @@ def _frappe_archive(tmp_path: Path, site: str, part: str) -> Path:
     (sites / site / part / "files" / "logo.png").write_text("image")
     archive = tmp_path / f"20261004_010000-{site}-{'private-' if part == 'private' else ''}files.tar"
     subprocess.run(["tar", "-cf", str(archive), f"./{site}/{part}/files"], cwd=sites, check=True)
+    return archive
+
+
+def _scripts_archive(tmp_path: Path, site: str = "source.localhost") -> Path:
+    """Built the way Frappe's backup builds it: `tar cf` of ./<site>/server_scripts from sites/."""
+    sites = tmp_path / "source-sites"
+    (sites / site / "server_scripts").mkdir(parents=True)
+    (sites / site / "server_scripts" / "Greeting.py").write_text("frappe.msgprint('hi')\n")
+    archive = tmp_path / f"20261004_010000-{site}-server-scripts.tar"
+    subprocess.run(["tar", "-cf", str(archive), f"./{site}/server_scripts"], cwd=sites, check=True)
     return archive
 
 
@@ -37,6 +48,8 @@ def test_backup_parts_are_told_apart_by_name() -> None:
         "x-database.sql.gz": "database",
         "x-files.tar": "public",
         "x-private-files.tgz": "private",
+        "x-server-scripts.tar": "server_scripts",
+        "x-server-scripts.tgz": "server_scripts",
         "x-site_config_backup.json": "config",
         "notes.txt": None,
     }
@@ -224,3 +237,64 @@ def test_a_config_restored_without_its_database_keeps_this_sites_encryption_key(
     SiteRestore(site).restore(BackupRun.from_paths([_source_config(tmp_path)]), ["config"], lambda message: None)
 
     site.set_config_values.assert_called_once_with({"max_file_size": 50})
+
+
+def test_server_scripts_are_a_restore_part_and_an_upload_name() -> None:
+    assert "server_scripts" in RESTORE_PARTS
+    uploaded = upload_file_name("server_scripts", "20261004_010000-x-server-scripts.tgz")
+    assert uploaded == "upload-server-scripts.tgz"
+    assert backup_part(uploaded) == "server_scripts"
+    assert backup_part(upload_file_name("server_scripts", "scripts.tar")) == "server_scripts"
+
+
+def test_scripts_from_another_site_land_in_this_site(tmp_path: Path) -> None:
+    site = _site(tmp_path)
+    run = BackupRun.from_paths([_scripts_archive(tmp_path)])
+
+    SiteRestore(site).restore(run, ["server_scripts"], on_progress=lambda message: None)
+
+    assert (site.path / "server_scripts" / "Greeting.py").read_text() == "frappe.msgprint('hi')\n"
+    site.restore.assert_not_called()  # scripts only: the database is left alone
+    site.migrate.assert_called_once()
+
+
+def test_scripts_are_restored_before_the_database_is_replaced(tmp_path: Path) -> None:
+    site = _site(tmp_path)
+    database = tmp_path / "20261004_010000-source_localhost-database.sql.gz"
+    database.write_bytes(b"dump")
+    run = BackupRun.from_paths([database, _scripts_archive(tmp_path)])
+    seen_when_database_restored: list[bool] = []
+    site.restore.side_effect = lambda *args: seen_when_database_restored.append(
+        (site.path / "server_scripts" / "Greeting.py").exists()
+    )
+
+    with patch.object(SiteRestore, "get_restored_database_config", return_value={}):
+        SiteRestore(site).restore(run, ["database", "server_scripts"], lambda message: None)
+
+    assert seen_when_database_restored == [True]
+
+
+def test_a_missing_scripts_part_is_refused_before_anything_changes(tmp_path: Path) -> None:
+    site = _site(tmp_path)
+
+    with pytest.raises(BenchError, match="no server_scripts file"):
+        SiteRestore(site).restore(BackupRun(), ["server_scripts"], lambda message: None)
+
+    site.set_maintenance_mode.assert_not_called()
+
+
+def test_an_archive_cannot_write_outside_the_scripts_directory(tmp_path: Path) -> None:
+    site = _site(tmp_path)
+    (site.path / "site_config.json").write_text('{"db_name": "real"}')
+    sites = tmp_path / "evil-sites"
+    (sites / "x" / "server_scripts").mkdir(parents=True)
+    (sites / "x" / "server_scripts" / "Greeting.py").write_text("pass\n")
+    (sites / "x" / "site_config.json").write_text('{"db_name": "other"}')
+    archive = tmp_path / "20261004_010000-x-server-scripts.tar"
+    subprocess.run(["tar", "-cf", str(archive), "./x/server_scripts", "./x/site_config.json"], cwd=sites, check=True)
+
+    SiteRestore(site).extract_files(archive, "server_scripts")
+
+    assert (site.path / "server_scripts" / "Greeting.py").exists()
+    assert json.loads((site.path / "site_config.json").read_text()) == {"db_name": "real"}
+

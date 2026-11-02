@@ -49,7 +49,7 @@ def restore_site(name: str):
 @sites_bp.post("/<name>/actions/restore-upload")
 @require_scope(site_name)
 def restore_site_from_upload(name: str):
-    """Restore from backup files sent as multipart fields database, public, private and config."""
+    """Restore from backup files sent as multipart fields database, public, private, server_scripts and config."""
     bench_root = Path(current_app.config["BENCH_ROOT"])
     if not site_exists(bench_root, name):
         return site_not_found()

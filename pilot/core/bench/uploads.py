@@ -26,6 +26,7 @@ _FILE_NAMES = {
     "database": ("upload-database.sql", "upload-database.sql.gz"),
     "public": ("upload-files.tar", "upload-files.tgz"),
     "private": ("upload-private-files.tar", "upload-private-files.tgz"),
+    "server_scripts": ("upload-server-scripts.tar", "upload-server-scripts.tgz"),
     "config": ("upload-site_config_backup.json", "upload-site_config_backup.json"),
 }
 

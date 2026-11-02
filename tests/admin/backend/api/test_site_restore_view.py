@@ -413,3 +413,42 @@ def test_a_backup_is_refused_while_a_restore_owns_the_site(tmp_path: Path) -> No
 
     assert restore.status_code == 202
     assert backup.status_code == 409
+
+
+def test_a_restore_can_choose_the_server_scripts(tmp_path: Path) -> None:
+    bench_root = tmp_path / "benches" / "current"
+    response = _client(bench_root).post(
+        "/api/v1/sites/a.localhost/actions/restore",
+        json={"parts": ["server_scripts", "database"], "source_site": "b.localhost", "backup_timestamp": "20261004_010000"},
+    )
+
+    assert response.status_code == 202
+    assert _meta(bench_root, response)["args"]["parts"] == ["database", "server_scripts"]
+
+
+def test_uploaded_server_scripts_are_saved_under_a_name_that_tells_them_apart(tmp_path: Path) -> None:
+    bench_root = tmp_path / "benches" / "current"
+    response = _client(bench_root).post(
+        "/api/v1/sites/a.localhost/actions/restore-upload",
+        data={"parts": ["server_scripts"], "server_scripts": (io.BytesIO(b"tar"), "x-server-scripts.tar")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 202
+    upload_dir = Path(_meta(bench_root, response)["args"]["upload_dir"])
+    assert [path.name for path in upload_dir.iterdir()] == ["upload-server-scripts.tar"]
+
+
+def test_a_chunked_upload_accepts_server_scripts(tmp_path: Path) -> None:
+    client = _client(tmp_path / "benches" / "current")
+
+    started = client.post(
+        "/api/v1/sites/a.localhost/uploads",
+        json={"files": {"server_scripts": {"filename": "x-server-scripts.tgz", "size": 3}}},
+    )
+
+    assert started.status_code == 201
+    url = f"/api/v1/sites/a.localhost/uploads/{started.get_json()['upload_id']}"
+    sent = client.put(f"{url}/files/server_scripts?offset=0", data=b"tgz", content_type="application/octet-stream")
+    assert sent.get_json() == {"received": 3}
+

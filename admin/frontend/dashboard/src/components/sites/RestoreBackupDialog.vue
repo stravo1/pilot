@@ -25,6 +25,7 @@ const PARTS = [
   { part: 'database', kind: 'database', label: 'Database' },
   { part: 'public', kind: 'public-file', label: 'Public files' },
   { part: 'private', kind: 'private-file', label: 'Private files' },
+  { part: 'server_scripts', kind: 'server-scripts', label: 'Server scripts' },
 ]
 
 const target = ref('')
